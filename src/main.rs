@@ -1,6 +1,8 @@
 use poise::serenity_prelude as serenity;
 use clap::{Parser, Subcommand};
 use serde::Deserialize;
+use tokio::io::{self, AsyncBufReadExt, BufReader};
+use std::time::Instant;
 use std::fs;
 use toml;
 
@@ -13,10 +15,17 @@ fn get_command_from_string(command_name: &str) -> Option<poise::Command<Data, Er
 }
 
 // Example command:
-/// Returns pong
+/// Returns pong and the latency of the message
 #[poise::command(slash_command)]
 async fn ping(ctx: Context<'_>) -> Result<(), Error> {
+    let start = Instant::now();
+
     ctx.say("Pong!").await?;
+
+    let latency = start.elapsed();
+
+    ctx.say(format!("Latency: {:.2?}", latency)).await?;
+    
     Ok(())
 }
 
@@ -68,7 +77,10 @@ async fn main() {
                    let token = cfg.bot.token;
                    let commands = cfg.bot.commands;
 
-                   start_bot(name, token, commands).await;
+                    tokio::join!(
+                        start_bot(name.clone(), token, commands),
+                        handle_command_line_input(name)
+                    );
                 },
                 Err(e) => eprintln!("Error reading config: {}", e),
             }   
@@ -102,4 +114,26 @@ async fn start_bot(name: String, token: String, command_strings: Vec<String>) {
         .framework(framework)
         .await;
     client.unwrap().start().await.unwrap();
+}
+
+async fn handle_command_line_input(bot_name: String) {
+    let stdin = BufReader::new(io::stdin());
+    let mut lines = stdin.lines();
+
+    println!("Command-line input handler started. Type commands below:");
+
+    while let Ok(Some(line)) = lines.next_line().await {
+        match line.as_str() {
+            "stop" => {
+                println!("Stopping the bot...");
+                std::process::exit(0);
+            }
+            "status" => {
+                println!("The bot '{}' is running.", bot_name);
+            }
+            _ => {
+                println!("Unknown command: {}", line);
+            }
+        }
+    }
 }
