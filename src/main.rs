@@ -6,6 +6,8 @@ use std::time::Instant;
 use std::fs;
 use toml;
 
+mod commands;
+
 fn get_command_from_string(command_name: &str) -> Option<poise::Command<Data, Error>> {
     match command_name {
         "ping" => Some(ping()),
